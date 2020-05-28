@@ -2,10 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def value_iteration(heads_proba, theta=1e-10, max_capital=100):
+def value_iteration(heads_proba, theta=1e-8, max_capital=100):
+    """
+    Value Iteration algorithm
+    Returns value estimates once error converges to less than theta
+    """
     values = np.zeros(max_capital+1)
     values[max_capital] = 1
-    values[0] = 0
 
     counter = 0
     while True:
@@ -21,7 +24,7 @@ def value_iteration(heads_proba, theta=1e-10, max_capital=100):
             values[state] = temp_values[opt_action]
 
         counter += 1
-        if not counter % 50:
+        if not counter % 100:
             print(f'Step: {counter}, Delta: {delta}')
 
         delta = abs(old_state_value - values).max()
@@ -30,14 +33,19 @@ def value_iteration(heads_proba, theta=1e-10, max_capital=100):
     return values
 
 def greedy_policy(values, heads_proba, max_capital=100):
+    """
+    Outputs deterministic policy
+    """
     policy = np.zeros(max_capital + 1)
     for state in range(1, len(values) - 1):
         temp_values = []
         for action in range(min(state, max_capital -state) + 1):
-            exp_return = heads_proba * values[state + action] \
-                         + (1-heads_proba) * values[state - action]
+            exp_return = heads_proba * values[state + action] + \
+                         (1-heads_proba) * values[state - action]
             temp_values.append(exp_return)
-        policy[state] = np.argmax(temp_values)
+        # temp_values rounded to avoid volatility in results, see
+        # https://github.com/ShangtongZhang/reinforcement-learning-an-introduction/issues/83
+        policy[state] = np.argmax(np.round(temp_values[1:], 5))
     return policy
 
 def plot_results(policy, proba):
