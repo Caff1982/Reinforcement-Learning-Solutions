@@ -29,8 +29,7 @@ class GUI:
         self.running = True
 
     def draw_square(self, x, y, cell_type):
-        pygame.draw.rect(self.screen, WHITE, (x, y, self.tile_size,
-                                              self.tile_size))
+        pygame.draw.rect(self.screen, WHITE, (x, y, self.tile_size, self.tile_size))
 
     def update(self, sequence):
         self.screen.fill(BLACK)
@@ -60,7 +59,7 @@ class GUI:
         pygame.display.update()
 
     def plot_sequence(self, sequence):
-        path = [(step[0][1], step[0][0]) for step in sequence]
+        path = [(step[1], step[0]) for step in sequence]
         idx = 1
         while self.running: 
             for event in pygame.event.get():

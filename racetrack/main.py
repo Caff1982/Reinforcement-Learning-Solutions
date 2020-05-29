@@ -5,22 +5,23 @@ from gui import GUI
 
 
 class Environment:
-    """Class to represent the ractrack as 2D array"""
+    """Class to represent ractrack as 2D array"""
 
-    def __init__(self, track):
+    def __init__(self, track, add_noise=True):
         self.track = track
-        self.done = False
+        # add_noise creates 0.1 proba of velocity being zero
+        self.add_noise = add_noise
 
         self.start_cells = np.where(self.track[-1:] == 2)[1]
         self.action_moves = np.array([[0, 0], [0, 1], [0, -1],
                                       [-1, 0], [-1, 1], [-1, -1],
                                       [1, 0], [1, 1], [1, -1]])
-        self.velocity = np.array([0, 0])
+        self.reset()
 
     def reset(self):
+        """Resets to inital settings, start position chosen randomly"""
         self.pos = np.array([len(self.track)-1, np.random.choice(self.start_cells)])
         self.velocity = np.array([0, 0])
-
         self.done = False
 
     def get_state(self):    
@@ -28,62 +29,56 @@ class Environment:
 
     def is_valid_cell(self):
         if 0 <= self.pos[0] < len(self.track) and 0 <= self.pos[1] < len(self.track[0]):         
-            if self.track[self.pos[0], self.pos[1]] in (0, 1, 2):
+            if self.track[self.pos[0], self.pos[1]] != 3:
                 return True
         self.done = True
         return False
 
     def reached_end(self):
         if self.pos[0] >= 0 and self.pos[1] >  len(self.track[0]):
-            # print('Reached end')
-            # print('Position:', self.pos)
             self.done = True
             return True
         return False
 
-    def set_velocity(self, action):
-        self.velocity += self.action_moves[action]
-        self.velocity = np.clip(self.velocity, -4, 4)
-
-        # self.velocity[0] = np.clip(self.velocity[0], -4, 0)
-        # self.velocity[1] = np.clip(self.velocity[1], 0, 4)
-        # if (self.velocity == np.array([0, 0])).all():
-        #     self.velocity[0] = -np.random.randint(2)
-        #     self.velocity[0] = np.random.randint(2)
-
     def update(self, action):
+        # Update velocity and clip values
         self.velocity += self.action_moves[action]
         self.velocity[0] = np.clip(self.velocity[0], -4, 0)
         self.velocity[1] = np.clip(self.velocity[1], 0, 4)
+        # If velocity is zero select up or right randomly
         if (self.velocity == np.array([0, 0])).all():
             if np.random.random() > 0.5:
                 self.velocity = np.array([-1, 0])
             else:
                 self.velocity = np.array([0, 1])
-        self.pos += self.velocity
 
+        if self.add_noise:
+            if np.random.random() < 0.1:
+                velocity = np.array([0, 0])
+
+        self.pos += self.velocity
         if self.reached_end():
             self.done = True
             return 0
         elif self.is_valid_cell():
             return -1
         else:
+            # apply out-of-bounds penalty
             self.done = True
-            return -25
+            return -20
 
 class MonteCarloSim:
-    """Class to simulates episodes using Monte-Carlo"""
-    def __init__(self, env, add_noise=False, epsilon=0.1,
-                 gamma=0.9, n_speeds=5, n_actions=9):
+    """Class to simulate episodes using Monte-Carlo"""
+    def __init__(self, env, epsilon=0.1, gamma=0.9,
+                 n_speeds=5, n_actions=9):
         self.env = env
-        # add_noise creates 0.1 proba of velocity being zero
-        self.add_noise = add_noise
+
         self.epsilon = 0.1
         self.gamma = 0.9
         self.n_speeds = 5
-        self.n_actions = 9
-        
+        self.n_actions = 9       
         self.sequence = []
+
         self.Qsa = np.zeros((len(self.env.track), len(self.env.track[0]), 
                              self.n_speeds, self.n_speeds, self.n_actions))
         self.action_counts = np.zeros((len(self.env.track), len(self.env.track[0]),
@@ -103,24 +98,21 @@ class MonteCarloSim:
         while not self.env.done:
             state = self.env.get_state()
             action = self.get_action(state)
-            
-            if self.add_noise:
-                if np.random.random() < 0.1:
-                    action = [0, 0]
             reward = self.env.update(action)
-
+            
             self.sequence.append((state, action, reward))
 
     def policy_evaluation(self,):
-        """Off-policy incremental implemenatation"""
+        """
+        Off-policy incremental implemenatation
+        behaviour policy is e-greedy, target policy is greedy
+        """
         returns = np.zeros(len(self.sequence))
         G = 0
-        W = 1
         for i in reversed(range(len(self.sequence))):
             state, action, reward = self.sequence[i]
             state_action = (*state, action)
             G = self.gamma * G + reward
-
 
             self.action_counts[state_action] += 1
             self.Qsa[state_action] += (1 / self.action_counts[state_action]) * \
@@ -128,45 +120,41 @@ class MonteCarloSim:
 
     def update_policy(self):
         """
-        Greedy policy update, selects move with max expected return
+        Greedy policy update, selects actions with max expected return
         """
         self.policy = np.argmax(self.Qsa, axis=-1)
 
-    def get_optimal_path(self):
-        self.env.reset()
 
-        optimal_path = []
-        while not self.env.done:
-            state = self.env.get_state()
-            optimal_path.append(self.env.pos)
+def get_optimal_path(policy):
+    env = Environment(track1, add_noise=False)
+    optimal_path = []
+    while not env.done:
+        state = env.get_state()
+        optimal_path.append(state)
 
-            action = np.argmax(self.policy[state])
-            self.env.update(action)
-        return optimal_path
-
+        action = policy[state]
+        env.update(action)
+    return optimal_path
 
 def update_mean(reward, old_value, action_count):
-    # Calculates amount to add for running average
+    """Calculates amount to add for running average"""
     return (reward - old_value) / (action_count + 1)
-
 
 
 if __name__ == '__main__':
     env = Environment(track1)
     mc = MonteCarloSim(env)
 
-    for ep in range(50000):
+    for episode in range(100000):
         env.reset()
         mc.play_episode()
         mc.policy_evaluation()
-        
         mc.update_policy()
 
-        if not ep % 5000:
-            print(f'Episode: {ep}, Sequence length: {len(mc.sequence)}')
+        if not episode % 5000:
+            print(f'Episode: {episode}, Sequence length: {len(mc.sequence)}')
 
-    # optimal_path = mc.get_optimal_path()
-    # print(optimal_path)
-
+    optimal_path = get_optimal_path(mc.policy)
+    print(optimal_path)
     gui = GUI(track1)
-    gui.plot_sequence(mc.sequence)
+    gui.plot_sequence(optimal_path)
