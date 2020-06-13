@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 
 
 class Environment:
+    """
+    Class for representing windy gridworld environment.
+    """
 
     def __init__(self, start, goal, height, width, use_stochastic=False):
         self.start = start
@@ -10,8 +13,8 @@ class Environment:
         self.height = height
         self.width = width
         self.use_stochastic = use_stochastic
-
-        self.winds = [0, 0, 0, 1, 1, 1, 2, 2, 1, 0]
+        
+        self.winds = [0, 0, 0, 1, 1, 1, 2, 2, 1, 0] # wind for each colum
         # Array mapping actions to moves
         self.action2move = np.array([[-1, 0], [1, 0], [0, -1], [0, 1],
                                      [-1, -1],[-1, 1],[1, -1],[1, 1],[0,0]])
@@ -59,12 +62,6 @@ class Agent:
         # Q-table to store state-action estimates
         self.Qsa = np.zeros((self.height, self.width, self.n_actions))
 
-    def __repr__(self):
-        """
-        Returns string with number of actions, used for plotting
-        """
-        return f'Agent with {self.n_actions} actions.'
-
     def get_action(self, state):
         """
         Returns action chosen using e-greedy policy
@@ -97,72 +94,51 @@ class Agent:
 
         return n_steps
 
-def get_optimal_path(env, agent, start=[3,0], goal=[3,7]):
+
+def train(env, n_runs, n_episodes, agent_actions):
     """
-    Takes a Q-table of state-action pairs as input.
-    Returns optimal path as a list
+    Completes training for n_episodes over n_runs for the agents specified 
+    in agent_actions (a list of ints).
+    Returns a 2D list of lists of mean episode-lengths for each agent
     """
-    optimal_path = []
-    state = start
-    while state != goal:
-        optimal_path.append(state)
-        action = np.argmax(agent.Qsa[state[0], state[1]])
-        r, new_state = env.update(state, action)
+    agents = [Agent(env, start, height, width, n_actions=n) for n in agent_actions]
+    agent_rewards = [[] for agent in range(len(agents))]
+    for run in range(n_runs):
+        if run % 10 == 0:
+            print(f'Run: {run}')
+        for i, agent in enumerate(agents):
+            episode_lengths = []
+            for ep in range(n_episodes):
+                env.reset()
+                steps = agent.play_episode()
+                episode_lengths.append(steps)
+            agent_rewards[i].append(np.add.accumulate(episode_lengths))
+    return np.mean(agent_rewards, axis=1)
 
-        state = new_state
-    return optimal_path
-
-def train(env, agent, n_episodes):
-    episode_lengths = []
-    for i in range(n_episodes):
-        env.reset()
-        steps = agent.play_episode()
-        episode_lengths.append(steps)
-    return episode_lengths
-
+def plot(agent_rewards, agent_actions, title, filename):
+    for i in range(len(agent_rewards)):
+        plt.plot(agent_rewards[i], np.arange(1, len(agent_rewards[i]) + 1),
+                 label=f'Agent with {agent_actions[i]} actions')
+    plt.xlabel('Time steps')
+    plt.ylabel('Episodes')
+    plt.title(title)
+    plt.legend()
+    plt.savefig(f'images/{filename}.png')
+    plt.show()
 
 if __name__ == '__main__':
     height = 7
     width = 10
     start = [3, 0]
     goal = [3, 7]
+    agent_actions = [4, 8, 9]
     env = Environment(start, goal, height, width)
-    agents = [Agent(env, start, height, width, n_actions=4),
-              Agent(env, start, height, width, n_actions=8),
-              Agent(env, start, height, width, n_actions=9)]
-
+    
     # Exercise 6.9, Windy Gridworld with King's Moves
-    for agent in agents:
-        train_history = train(env, agent, 170)
-        train_history = np.add.accumulate(train_history)
-
-        plt.plot(train_history, np.arange(1, len(train_history) + 1),
-                 label=agent)
-    plt.xlabel('Time steps')
-    plt.ylabel('Episodes')
-    plt.title('Windy Gridworld')
-    plt.legend()
-    plt.savefig('images/ex6_9.png')
-    plt.show()
+    train_history = train(env, 20, 170, agent_actions)
+    plot(train_history, agent_actions, 'Windy Gridworld', 'ex6_9')
 
     # Exercise 6.10, Stochastic winds
-    env = Environment(start, goal, height, width,
-                      use_stochastic=True)
-    agents = [Agent(env, start, height, width, n_actions=4),
-              Agent(env, start, height, width, n_actions=8),
-              Agent(env, start, height, width, n_actions=9)]
-    
-    for agent in agents:
-        train_history = train(env, agent, 400)
-        train_history = np.add.accumulate(train_history)
-        plt.plot(train_history, np.arange(1, len(train_history) + 1),
-                 label=agent)
-
-    plt.xlabel('Time steps')
-    plt.ylabel('Episodes')
-    plt.title('Stochastic Gridworld')
-    plt.legend()
-    plt.savefig('images/ex6_10.png')
-    plt.show()
-
-
+    env = Environment(start, goal, height, width, use_stochastic=True)
+    train_history = train(env, 50, 500, agent_actions)
+    plot(train_history, agent_actions, 'Stochastic Wind', 'ex6_10')
