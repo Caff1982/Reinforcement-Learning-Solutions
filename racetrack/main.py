@@ -5,7 +5,9 @@ from gui import GUI
 
 
 class Environment:
-    """Class to represent ractrack as 2D array"""
+    """
+    Class to represent ractrack as 2D array
+    """
 
     def __init__(self, track, add_noise=True):
         self.track = track
@@ -19,7 +21,9 @@ class Environment:
         self.reset()
 
     def reset(self):
-        """Resets to inital settings, start position chosen randomly"""
+        """
+        Resets to inital settings, start position chosen randomly
+        """
         self.pos = np.array([len(self.track)-1, np.random.choice(self.start_cells)])
         self.velocity = np.array([0, 0])
         self.done = False
@@ -68,7 +72,10 @@ class Environment:
             return -20
 
 class MonteCarloSim:
-    """Class to simulate episodes using Monte-Carlo"""
+    """
+    Class to simulate episodes using Monte-Carlo
+    """
+
     def __init__(self, env, epsilon=0.1, gamma=0.9,
                  n_speeds=5, n_actions=9):
         self.env = env
@@ -104,8 +111,7 @@ class MonteCarloSim:
 
     def policy_evaluation(self,):
         """
-        Off-policy incremental implemenatation
-        behaviour policy is e-greedy, target policy is greedy
+        On-policy incremental implemenatation using importance sampling
         """
         returns = np.zeros(len(self.sequence))
         G = 0
@@ -118,7 +124,7 @@ class MonteCarloSim:
             self.Qsa[state_action] += (1 / self.action_counts[state_action]) * \
                                       (G - self.Qsa[state_action])
 
-    def update_policy(self):
+    def policy_improvement(self):
         """
         Greedy policy update, selects actions with max expected return
         """
@@ -137,7 +143,9 @@ def get_optimal_path(policy):
     return optimal_path
 
 def update_mean(reward, old_value, action_count):
-    """Calculates amount to add for running average"""
+    """
+    Calculates amount to add for running average
+    """
     return (reward - old_value) / (action_count + 1)
 
 
@@ -149,7 +157,7 @@ if __name__ == '__main__':
         env.reset()
         mc.play_episode()
         mc.policy_evaluation()
-        mc.update_policy()
+        mc.policy_improvement()
 
         if not episode % 5000:
             print(f'Episode: {episode}, Sequence length: {len(mc.sequence)}')
