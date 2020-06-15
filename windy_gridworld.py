@@ -3,9 +3,6 @@ import matplotlib.pyplot as plt
 
 
 class Environment:
-    """
-    Class for representing windy gridworld environment.
-    """
 
     def __init__(self, start, goal, height, width, use_stochastic=False):
         self.start = start
@@ -13,7 +10,7 @@ class Environment:
         self.height = height
         self.width = width
         self.use_stochastic = use_stochastic
-        
+
         self.winds = [0, 0, 0, 1, 1, 1, 2, 2, 1, 0] # wind for each colum
         # Array mapping actions to moves
         self.action2move = np.array([[-1, 0], [1, 0], [0, -1], [0, 1],
@@ -62,6 +59,10 @@ class Agent:
         # Q-table to store state-action estimates
         self.Qsa = np.zeros((self.height, self.width, self.n_actions))
 
+    def __repr__(self):
+        """Used for plotting purposes"""
+        return f'Agent with {self.n_actions} actions'
+
     def get_action(self, state):
         """
         Returns action chosen using e-greedy policy
@@ -95,30 +96,33 @@ class Agent:
         return n_steps
 
 
-def train(env, n_runs, n_episodes, agent_actions):
+def get_agents(env, start, height, width, agent_actions=[4, 8, 9]):
     """
-    Completes training for n_episodes over n_runs for the agents specified 
-    in agent_actions (a list of ints).
-    Returns a 2D list of lists of mean episode-lengths for each agent
+    Used to create a list of agents.agent_actions is list of integers
+    denoting number of actions for each agent.
+    Returns a list of Agents
     """
-    agents = [Agent(env, start, height, width, n_actions=n) for n in agent_actions]
-    agent_rewards = [[] for agent in range(len(agents))]
-    for run in range(n_runs):
-        if run % 10 == 0:
-            print(f'Run: {run}')
-        for i, agent in enumerate(agents):
-            episode_lengths = []
-            for ep in range(n_episodes):
-                env.reset()
-                steps = agent.play_episode()
-                episode_lengths.append(steps)
-            agent_rewards[i].append(np.add.accumulate(episode_lengths))
-    return np.mean(agent_rewards, axis=1)
+    return [Agent(env, start, height, width, n_actions=n) for n in agent_actions]
 
-def plot(agent_rewards, agent_actions, title, filename):
-    for i in range(len(agent_rewards)):
-        plt.plot(agent_rewards[i], np.arange(1, len(agent_rewards[i]) + 1),
-                 label=f'Agent with {agent_actions[i]} actions')
+def train(env, agents, n_episodes,):
+    """
+    Trains each agent for n_episodes
+    Returns a 2D list of lists of episode-lengths for each agent
+    """
+    agent_history = []
+    for i, agent in enumerate(agents):
+        episode_lengths = []
+        for ep in range(n_episodes):
+            env.reset()
+            steps = agent.play_episode()
+            episode_lengths.append(steps)
+        agent_history.append(np.add.accumulate(episode_lengths))
+    return agent_history
+
+def plot(train_history, agents, title, filename):
+    for i in range(len(train_history)):
+        plt.plot(train_history[i], np.arange(1, len(train_history[i]) + 1),
+                 label=agents[i])
     plt.xlabel('Time steps')
     plt.ylabel('Episodes')
     plt.title(title)
@@ -131,14 +135,15 @@ if __name__ == '__main__':
     width = 10
     start = [3, 0]
     goal = [3, 7]
-    agent_actions = [4, 8, 9]
-    env = Environment(start, goal, height, width)
     
     # Exercise 6.9, Windy Gridworld with King's Moves
-    train_history = train(env, 20, 170, agent_actions)
-    plot(train_history, agent_actions, 'Windy Gridworld', 'ex6_9')
+    env = Environment(start, goal, height, width)
+    agents = get_agents(env, start, height, width)
+    train_history = train(env, agents, 170)
+    plot(train_history, agents, 'Windy Gridworld', 'ex6_9')
 
     # Exercise 6.10, Stochastic winds
     env = Environment(start, goal, height, width, use_stochastic=True)
-    train_history = train(env, 50, 500, agent_actions)
-    plot(train_history, agent_actions, 'Stochastic Wind', 'ex6_10')
+    agents = get_agents(env, start, height, width, )
+    train_history = train(env, agents, 300)
+    plot(train_history, agents, 'Stochastic Wind', 'ex6_10')

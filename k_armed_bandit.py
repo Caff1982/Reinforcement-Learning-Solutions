@@ -6,10 +6,10 @@ class Bandit:
     """K-armed bandit from chapter 2
 
     Arguments:
-        epsilon: float 0-1. Controls e-greedy exploration/exploitation
-        k: integer: Number of arms on bandit
-        non_stationary: bool. If True adds 0.01 noise at each step
-        alpha: float 0-1: Stepsize parameter
+        epsilon (float 0-1): Controls e-greedy exploration/exploitation
+        k (int): Number of arms on bandit
+        non_stationary (bool): If True adds 0.01 noise at each step
+        alpha (float 0-1): Stepsize parameter
         mean: sets the mean of true values
         std: sets standard deviation of true values
 
@@ -26,7 +26,7 @@ class Bandit:
         self.non_stationary = non_stationary
         self.alpha = alpha
 
-        self.reset() # Initialize values
+        self.reset()
 
     def __str__(self):
         """
@@ -41,7 +41,6 @@ class Bandit:
     def reset(self):
         self.true_values = np.random.normal(self.mean, self.std, self.k)
         self.opt_action = np.argmax(self.true_values)
-
         self.Qa = np.zeros(self.k)
         self.Na = np.zeros(self.k)
 
@@ -55,9 +54,9 @@ class Bandit:
             return np.argmax(self.Qa)
 
     def update(self, action):
-        reward = np.random.normal(self.true_values[action])
         self.Na[action] += 1
-
+        reward = np.random.normal(self.true_values[action])
+        
         if self.alpha: # Use alpha as stepsize param
             self.Qa[action] += self.alpha * (reward - self.Qa[action])
         else: # Sample average
@@ -73,9 +72,9 @@ def train(bandits, n_iters, n_steps):
     """Trains bandits and returns mean rewards and optimal actions
 
     Arguments:
-        bandits: list. A list of Bandits to be trained
-        n_iters: integer. The number of iterations to average over
-        n_steps: integer. The number of steps per iteration
+        bandits (list): A list of Bandits to be trained
+        n_iters (int): The number of iterations to average over
+        n_steps (int). The number of steps per iteration
 
     Returns:
         The mean results and percentage of optimal actions taken
@@ -93,8 +92,7 @@ def train(bandits, n_iters, n_steps):
                 action = bandit.get_action()
                 reward = bandit.update(action)
                 rewards[i, iteration, step] = reward
-
-                if action == bandit.opt_action:
+                if action == bandit.opt_action: # increment optimal action
                     opt_actions[i, iteration, step] = 1
 
     mean_rewards = rewards.mean(axis=1)
@@ -124,12 +122,10 @@ if __name__ == '__main__':
     # Recreating figure 2.2
     bandits = [Bandit(0.1), Bandit(0.01), Bandit(0.0)]
     rewards, opt_actions = train(bandits, 3000, 1000)
-
     plot_results(bandits, rewards, opt_actions, 'fig2_2')
 
     # Exercise 2.5
     bandits = [Bandit(0.1, non_stationary=True),
                Bandit(0.1, non_stationary=True, alpha=0.1)]
     rewards, opt_actions = train(bandits, 2000, 10000)
-
     plot_results(bandits, rewards, opt_actions, 'ex2_5')
